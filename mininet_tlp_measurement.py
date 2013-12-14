@@ -2,10 +2,11 @@
 
 from mininet.topo import Topo
 from mininet.link import TCLink
-from mininet.node import CPULimitedHost
 from mininet.net import Mininet
 from time import sleep
+from mininet.node import Node
 import argparse
+import drop_tail
 
 class router(Topo):
     #link with different values of bandwidth and latency
@@ -34,7 +35,7 @@ class router(Topo):
             self.addLink(h2,h3, use_tbf=True)
 
 
-def project(choice, buffsize, destfile):
+def project(choice, buffsize, destfile, segments):
     topo = router(choice)
     net = Mininet(topo=topo, link=TCLink)
     print('Starting network...')
@@ -60,13 +61,19 @@ def project(choice, buffsize, destfile):
     print('ping h1 - > h3')
     print h1.cmd('ping -c5 10.0.1.3')
     #nc6 and tcpdump
-    nc6TCPd(h1, h2, h3, transferSize(buffsize), destfile)
+    nc6TCPd(h1, h2, h3, transferSize(buffsize), destfile, segments)
 
     net.stop()
     print ('Network stopped!')
 
-
-def nc6TCPd(h1, h2, h3, bfs, destfile):
+def netfilter(h2, segments, bfs):
+	h2.cmd('iptables -A FORWARD -i h2-eth0 -o h2-eth1 -p tcp -j NFQUEUE --queue-num 0')
+	print('I am here')
+	result=h2.cmd('python drop_tail.py --transfer 33 --segments 22')
+	print(result)
+	
+	
+def nc6TCPd(h1, h2, h3, bfs, destfile, segments):
     h2.cmd('mkdir captures')
 
     print('Netcat6')
@@ -83,16 +90,22 @@ def nc6TCPd(h1, h2, h3, bfs, destfile):
     print h3.sendCmd('nc6 -4 --rev-transfer ' + h1.IP() +' 7676 > /dev/null')
     print('Sleep 10 seconds')
     sleep(1)
-
+    #print('NET FILTER start')
+    #netfilter(h2, segments, bfs)
+    #print('NET FILTER end')
     h3.waitOutput()    
     h1.waitOutput()
-
-    print h1.cmd('ping -c5 10.0.1.3')
+	
+    #netfilter(h2,segments,bfs)
 
     h2.cmd('kill %tcpdump')
     sleep(1)
 
     print('Transfer finished!')
+    print('NET FILTER start')
+    netfilter(h2, segments, bfs)
+    sleep(5)
+    print('NET FILTER end')
 
 
 def transferSize(bufferSize):
@@ -112,7 +125,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', '-c', help='Configure link')
     parser.add_argument('--transfer', '-t', help='Transfer Size')
     parser.add_argument('--dest', '-d', help='Packets destination File')
-
+    parser.add_argument('--segments', '-s', help='Number of dropped segments')
     args = parser.parse_args()
-    project((args.config), (args.transfer), (args.dest))
+    project((args.config), (args.transfer), (args.dest), (args.segments))
 
