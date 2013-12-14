@@ -30,8 +30,8 @@ class router(Topo):
             self.addLink(h1,h2, use_tbf=True, **self.linkopts3)
             self.addLink(h2,h3, use_tbf=True, **self.linkopts3)
         else:
-            self.addLink(h1,h2)
-            self.addLink(h2,h3)
+            self.addLink(h1,h2, use_tbf=True)
+            self.addLink(h2,h3, use_tbf=True)
 
 
 def project(choice, buffsize, destfile):
@@ -70,7 +70,7 @@ def nc6TCPd(h1, h2, h3, bfs, destfile):
     h2.cmd('mkdir captures')
 
     print('Netcat6')
-    h1.sendCmd('dd if=/dev/zero bs=1448 count=64 | nc6 -4 -X -l -p 7676 &')
+    h1.sendCmd('dd if=/dev/zero bs=1448 count='+ str(bfs) + ' | nc6 -4 -X -l -p 7676 &')
 
     dest='test'
     if destfile:
@@ -96,15 +96,15 @@ def nc6TCPd(h1, h2, h3, bfs, destfile):
 
 
 def transferSize(bufferSize):
-    mss=1500-40
-    if(bufferSize=='short'):
-        return (64*mss)
-    elif(bufferSize=='medium'):
-        return (128*mss)
-    elif(bufferSize=='long'):
-        return (256*mss)
+    if bufferSize=='short':
+	return 64
+    elif bufferSize=='medium':
+	return 128
+    elif bufferSize=='long':
+	return 256
     else:
-        return 65536
+	return 64
+  
 
 
 if __name__ == '__main__':
@@ -115,5 +115,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     project((args.config), (args.transfer), (args.dest))
-
 
